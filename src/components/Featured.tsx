@@ -39,7 +39,14 @@ export default function Featured() {
         </h2>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-10 border-b border-neutral-200">
+        <div className="flex gap-2 mb-10 border-b border-neutral-200 items-center">
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="mr-2 text-neutral-400 hover:text-purple-600 transition-colors duration-300 pb-2"
+            title="На главную"
+          >
+            <Icon name="ArrowLeft" size={20} />
+          </button>
           {TABS.map((tab) => (
             <button
               key={tab}
