@@ -17,8 +17,17 @@ export default function Header({ className, onAuthClick }: HeaderProps) {
   return (
     <header className={`absolute top-0 left-0 right-0 z-50 p-6 ${className ?? ""}`}>
       <div className="flex justify-between items-center">
-        <div className="text-white text-xl font-bold tracking-widest uppercase">
-          FLAVORCLOUDS
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="text-white hover:text-purple-400 transition-colors duration-300"
+            title="Наверх"
+          >
+            <Icon name="ArrowUp" size={20} />
+          </button>
+          <div className="text-white text-xl font-bold tracking-widest uppercase">
+            FLAVORCLOUDS
+          </div>
         </div>
         <nav className="hidden md:flex gap-8 items-center">
           <button
