@@ -27,6 +27,24 @@ const support = [
   { title: "FAQ", desc: "Ответы на частые вопросы: как заправить, как обслуживать, что выбрать.", icon: "HelpCircle" },
 ];
 
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  new:       { label: "Новый",       color: "bg-blue-50 text-blue-600" },
+  confirmed: { label: "Подтверждён", color: "bg-indigo-50 text-indigo-600" },
+  delivery:  { label: "В доставке",  color: "bg-amber-50 text-amber-600" },
+  done:      { label: "Выполнен",    color: "bg-green-50 text-green-600" },
+  cancelled: { label: "Отменён",     color: "bg-red-50 text-red-600" },
+};
+
+interface OrderItem { name: string; qty: number; price: number }
+interface Order {
+  id: number;
+  status: string;
+  total: number;
+  items: OrderItem[];
+  note?: string;
+  created_at: string;
+}
+
 interface ProfileData {
   username: string;
   first_name?: string;
@@ -36,8 +54,10 @@ interface ProfileData {
 
 function ProfileTab() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("tg_session");
@@ -46,15 +66,22 @@ function ProfileTab() {
       setLoading(false);
       return;
     }
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Session-Token": token },
-      body: JSON.stringify({ action: "profile" }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ok) setProfile(data.user);
-        else setError(data.error || "Ошибка");
+    Promise.all([
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": token },
+        body: JSON.stringify({ action: "profile" }),
+      }).then((r) => r.json()),
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": token },
+        body: JSON.stringify({ action: "orders" }),
+      }).then((r) => r.json()),
+    ])
+      .then(([profileData, ordersData]) => {
+        if (profileData.ok) setProfile(profileData.user);
+        else setError(profileData.error || "Ошибка");
+        if (ordersData.ok) setOrders(ordersData.orders);
       })
       .catch(() => setError("Ошибка загрузки профиля"))
       .finally(() => setLoading(false));
@@ -96,10 +123,10 @@ function ProfileTab() {
     : "—";
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-2xl">
       {/* Аватар и имя */}
       <div className="flex items-center gap-5 mb-10">
-        <div className="bg-purple-600 w-20 h-20 flex items-center justify-center text-white text-3xl font-bold">
+        <div className="bg-purple-600 w-20 h-20 flex items-center justify-center text-white text-3xl font-bold shrink-0">
           {(profile?.first_name || profile?.username || "U")[0].toUpperCase()}
         </div>
         <div>
@@ -111,7 +138,7 @@ function ProfileTab() {
       </div>
 
       {/* Статистика */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-2 gap-4 mb-10">
         <div className="border border-neutral-100 p-6">
           <div className="flex items-center gap-3 mb-2">
             <Icon name="CalendarDays" size={20} className="text-purple-500" />
@@ -126,6 +153,72 @@ function ProfileTab() {
           </div>
           <p className="text-3xl font-bold text-purple-600">{profile?.orders_count ?? 0}</p>
         </div>
+      </div>
+
+      {/* История заказов */}
+      <div className="mb-8">
+        <h4 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+          <Icon name="ClipboardList" size={20} className="text-purple-500" />
+          История заказов
+        </h4>
+
+        {orders.length === 0 ? (
+          <div className="border border-dashed border-neutral-200 p-10 text-center">
+            <Icon name="ShoppingCart" size={36} className="text-neutral-300 mx-auto mb-3" />
+            <p className="text-neutral-400 text-sm">Заказов пока нет</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {orders.map((order) => {
+              const st = STATUS_LABELS[order.status] ?? { label: order.status, color: "bg-neutral-100 text-neutral-600" };
+              const date = new Date(order.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+              const isOpen = expandedId === order.id;
+
+              return (
+                <div key={order.id} className="border border-neutral-100 overflow-hidden">
+                  <button
+                    className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors"
+                    onClick={() => setExpandedId(isOpen ? null : order.id)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-semibold text-neutral-900">Заказ #{order.id}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
+                      </div>
+                      <p className="text-sm text-neutral-400">{date}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-neutral-900">{order.total ? `${order.total.toLocaleString("ru-RU")} ₽` : "—"}</p>
+                    </div>
+                    <Icon name={isOpen ? "ChevronUp" : "ChevronDown"} size={18} className="text-neutral-400 shrink-0" />
+                  </button>
+
+                  {isOpen && (
+                    <div className="border-t border-neutral-100 px-5 py-4 bg-neutral-50">
+                      {order.items && order.items.length > 0 ? (
+                        <div className="flex flex-col gap-2 mb-3">
+                          {order.items.map((item, i) => (
+                            <div key={i} className="flex justify-between text-sm">
+                              <span className="text-neutral-700">{item.name} × {item.qty}</span>
+                              <span className="text-neutral-500">{(item.price * item.qty).toLocaleString("ru-RU")} ₽</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-neutral-400 mb-3">Состав заказа не указан</p>
+                      )}
+                      {order.note && (
+                        <p className="text-xs text-neutral-500 border-t border-neutral-200 pt-2 mt-2">
+                          <span className="font-medium">Примечание:</span> {order.note}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="border border-neutral-100 p-5 flex items-center gap-3 text-sm text-neutral-500">

@@ -166,4 +166,43 @@ def handler(event: dict, context) -> dict:
                     }
                 })}
 
+    # --- История заказов ---
+    if action == 'orders':
+        token = (event.get('headers') or {}).get('X-Session-Token')
+        if not token:
+            return {'statusCode': 401, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Не авторизован'})}
+
+        row = get_user_by_token(token)
+        if not row:
+            return {'statusCode': 401, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Сессия недействительна'})}
+
+        user_id = row[0]
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT id, status, total, items, note, created_at FROM {SCHEMA}.orders WHERE user_id = %s ORDER BY created_at DESC LIMIT 50",
+            (user_id,)
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        orders = [
+            {
+                'id': r[0],
+                'status': r[1],
+                'total': r[2],
+                'items': r[3] if r[3] else [],
+                'note': r[4],
+                'created_at': r[5].isoformat() if r[5] else None,
+            }
+            for r in rows
+        ]
+
+        return {'statusCode': 200, 'headers': CORS_HEADERS,
+                'body': json.dumps({'ok': True, 'orders': orders})}
+
     return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'Неизвестное действие'})}
