@@ -1,6 +1,5 @@
 """
-Авторизация пользователей через Telegram-бот.
-Поддерживает отправку кода и верификацию.
+Авторизация пользователей через Telegram-бот и профиль пользователя.
 """
 import json
 import os
@@ -9,7 +8,6 @@ import string
 import hashlib
 import psycopg2
 import urllib.request
-import urllib.parse
 
 CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -17,9 +15,9 @@ CORS_HEADERS = {
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token',
 }
 
-# Временное хранилище кодов (в памяти, живёт пока функция активна)
-# Для продакшена лучше использовать Redis, но для старта сойдёт
 _codes: dict = {}
+
+SCHEMA = 't_p1532187_sky_blue_initiative_'
 
 
 def send_telegram_message(chat_id: int, text: str):
@@ -32,13 +30,12 @@ def send_telegram_message(chat_id: int, text: str):
 
 
 def get_chat_id_by_username(username: str):
-    """Попытка получить chat_id через getUpdates (работает если пользователь писал боту)"""
     token = os.environ['TELEGRAM_BOT_TOKEN']
     url = f"https://api.telegram.org/bot{token}/getUpdates?limit=100"
     req = urllib.request.Request(url)
     with urllib.request.urlopen(req) as resp:
         data = json.loads(resp.read())
-    
+
     username_clean = username.lstrip('@').lower()
     for update in data.get('result', []):
         msg = update.get('message') or update.get('my_chat_member', {})
@@ -58,6 +55,19 @@ def generate_token():
 
 def get_db():
     return psycopg2.connect(os.environ['DATABASE_URL'])
+
+
+def get_user_by_token(token: str):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT id, telegram_id, username, first_name, created_at FROM {SCHEMA}.users WHERE session_token = %s",
+        (token,)
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
 
 
 def handler(event: dict, context) -> dict:
@@ -81,7 +91,6 @@ def handler(event: dict, context) -> dict:
 
         code = generate_code()
         _codes[username.lower().lstrip('@')] = {'code': code, 'chat_id': chat_id}
-
         send_telegram_message(chat_id, f"🔐 Ваш код для входа в FlavorClouds: {code}\n\nКод действителен 5 минут.")
 
         return {'statusCode': 200, 'headers': CORS_HEADERS,
@@ -103,7 +112,7 @@ def handler(event: dict, context) -> dict:
         conn = get_db()
         cur = conn.cursor()
         cur.execute(
-            """INSERT INTO users (telegram_id, username, session_token, updated_at)
+            f"""INSERT INTO {SCHEMA}.users (telegram_id, username, session_token, updated_at)
                VALUES (%s, %s, %s, NOW())
                ON CONFLICT (telegram_id) DO UPDATE
                SET username = EXCLUDED.username, session_token = EXCLUDED.session_token, updated_at = NOW()
@@ -124,25 +133,37 @@ def handler(event: dict, context) -> dict:
                     'user': {'id': row[0], 'telegram_id': row[1], 'username': row[2], 'first_name': row[3]}
                 })}
 
-    # --- Проверка сессии ---
-    if action == 'me':
+    # --- Профиль пользователя ---
+    if action == 'profile':
         token = (event.get('headers') or {}).get('X-Session-Token')
         if not token:
             return {'statusCode': 401, 'headers': CORS_HEADERS,
                     'body': json.dumps({'error': 'Не авторизован'})}
 
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT id, telegram_id, username, first_name FROM users WHERE session_token = %s", (token,))
-        row = cur.fetchone()
-        cur.close()
-        conn.close()
-
+        row = get_user_by_token(token)
         if not row:
             return {'statusCode': 401, 'headers': CORS_HEADERS,
                     'body': json.dumps({'error': 'Сессия недействительна'})}
 
+        user_id, telegram_id, username, first_name, created_at = row
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.orders WHERE user_id = %s", (user_id,))
+        orders_count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+
         return {'statusCode': 200, 'headers': CORS_HEADERS,
-                'body': json.dumps({'ok': True, 'user': {'id': row[0], 'telegram_id': row[1], 'username': row[2], 'first_name': row[3]}})}
+                'body': json.dumps({
+                    'ok': True,
+                    'user': {
+                        'id': user_id,
+                        'username': username,
+                        'first_name': first_name,
+                        'created_at': created_at.isoformat() if created_at else None,
+                        'orders_count': orders_count,
+                    }
+                })}
 
     return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'Неизвестное действие'})}
