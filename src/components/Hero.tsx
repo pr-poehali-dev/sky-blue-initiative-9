@@ -29,7 +29,7 @@ export default function Hero() {
       <div className="relative z-10 text-center text-white px-4">
         <p className="text-purple-400 uppercase tracking-[0.3em] text-sm mb-4">Премиальный вейп-магазин</p>
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6">
-          VAPEZONE
+          FLAVORCLOUDS
         </h1>
         <p className="text-lg md:text-xl max-w-2xl mx-auto px-6 opacity-80 mb-8">
           Широкий ассортимент вейпов, жидкостей и аксессуаров. Быстрая доставка по всей России.

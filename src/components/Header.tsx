@@ -18,7 +18,7 @@ export default function Header({ className, onAuthClick }: HeaderProps) {
     <header className={`absolute top-0 left-0 right-0 z-50 p-6 ${className ?? ""}`}>
       <div className="flex justify-between items-center">
         <div className="text-white text-xl font-bold tracking-widest uppercase">
-          VAPEZONE
+          FLAVORCLOUDS
         </div>
         <nav className="hidden md:flex gap-8 items-center">
           <button
