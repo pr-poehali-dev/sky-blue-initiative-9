@@ -88,10 +88,18 @@ export default function TelegramAuthModal({ open, onClose, onSuccess }: Telegram
         {step === "start" && (
           <>
             <h2 className="text-2xl font-bold text-center mb-2 text-neutral-900">Войти через Telegram</h2>
-            <p className="text-neutral-500 text-center text-sm mb-8">
-              Укажите ваш username в Telegram. Бот отправит вам код подтверждения.<br />
-              <span className="text-purple-600 font-medium">Сначала напишите боту любое сообщение!</span>
+            <p className="text-neutral-500 text-center text-sm mb-4">
+              Укажите ваш username в Telegram. Бот отправит вам код подтверждения.
             </p>
+            <a
+              href="https://t.me/flavorcl0uds_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 text-[#229ED9] hover:text-[#1a8bc4] text-sm font-medium mb-8 transition-colors"
+            >
+              <Icon name="Send" size={14} />
+              Сначала напишите боту @flavorcl0uds_bot
+            </a>
             <button
               onClick={() => setStep("username")}
               className="w-full bg-[#229ED9] hover:bg-[#1a8bc4] text-white py-3 uppercase tracking-wide text-sm transition-colors duration-300 flex items-center justify-center gap-2"
