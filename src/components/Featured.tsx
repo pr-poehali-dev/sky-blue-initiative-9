@@ -1,22 +1,85 @@
+import { useState } from "react";
+import Icon from "@/components/ui/icon";
+
+const TABS = ["Ассортимент", "Доставка", "Поддержка"] as const;
+type Tab = typeof TABS[number];
+
+const catalog = [
+  { name: "Одноразовые вейпы", desc: "Топовые бренды: Elf Bar, HQD, Fumot. От 500 затяжек до 12 000+.", icon: "Zap", price: "от 350 ₽" },
+  { name: "Под-системы", desc: "SMOK, Vaporesso, Uwell — надёжные устройства для любого уровня.", icon: "Wind", price: "от 1 500 ₽" },
+  { name: "Жидкости", desc: "Более 200 вкусов: фрукты, ягоды, десерты, ментол. Salt и обычный nic.", icon: "Droplets", price: "от 250 ₽" },
+  { name: "Аксессуары", desc: "Испарители, батарейки, кейсы, зарядки — всё для комфортного вейпинга.", icon: "Package", price: "от 100 ₽" },
+];
+
+const delivery = [
+  { title: "Курьер по городу", desc: "Доставка в день заказа при оформлении до 16:00. Бесплатно от 2 000 ₽.", icon: "Bike" },
+  { title: "СДЭК / Почта России", desc: "Доставка по всей России. Срок 1–7 дней в зависимости от региона.", icon: "Package" },
+  { title: "Самовывоз", desc: "Забери заказ в нашем магазине без ожидания. Адрес в Telegram.", icon: "MapPin" },
+  { title: "Оплата", desc: "Наличные, карта, СБП, перевод на карту. Оплата при получении.", icon: "CreditCard" },
+];
+
+const support = [
+  { title: "Telegram-чат", desc: "Ответим в течение 15 минут с 9:00 до 23:00 ежедневно.", icon: "Send" },
+  { title: "Подбор устройства", desc: "Поможем выбрать вейп под ваш стиль, вкус и бюджет. Бесплатно.", icon: "Search" },
+  { title: "Гарантия", desc: "14 дней на возврат. Гарантийный ремонт на все pod-системы.", icon: "ShieldCheck" },
+  { title: "FAQ", desc: "Ответы на частые вопросы: как заправить, как обслуживать, что выбрать.", icon: "HelpCircle" },
+];
+
 export default function Featured() {
+  const [activeTab, setActiveTab] = useState<Tab>("Ассортимент");
+
+  const items = activeTab === "Ассортимент" ? catalog : activeTab === "Доставка" ? delivery : support;
+
   return (
-    <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center min-h-screen px-6 py-12 lg:py-0 bg-white">
-      <div className="flex-1 h-[400px] lg:h-[800px] mb-8 lg:mb-0 lg:order-2">
-        <img
-          src="/images/woman-horse.jpg"
-          alt="Woman on horse in countryside"
-          className="w-full h-full object-cover"
-        />
-      </div>
-      <div className="flex-1 text-left lg:h-[800px] flex flex-col justify-center lg:mr-12 lg:order-1">
-        <h3 className="uppercase mb-4 text-sm tracking-wide text-neutral-600">Функции, которые не стоят на месте</h3>
-        <p className="text-2xl lg:text-4xl mb-8 text-neutral-900 leading-tight">
-          Не просто список возможностей — живые, дышащие акценты. Каждая функция адаптируется к движению, контексту и настроению,
-          оживляя продукт с первого взгляда.
-        </p>
-        <button className="bg-black text-white border border-black px-4 py-2 text-sm transition-all duration-300 hover:bg-white hover:text-black cursor-pointer w-fit uppercase tracking-wide">
-          Подробнее
-        </button>
+    <div id="catalog" className="min-h-screen bg-white px-6 py-20">
+      <div className="max-w-5xl mx-auto">
+        <h3 className="uppercase mb-4 text-sm tracking-widest text-neutral-500">Всё, что нужно</h3>
+        <h2 className="text-3xl md:text-5xl font-bold text-neutral-900 mb-12 leading-tight">
+          Вейп-культура<br />без компромиссов
+        </h2>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-10 border-b border-neutral-200">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              id={tab === "Доставка" ? "delivery" : tab === "Поддержка" ? "support" : undefined}
+              className={`px-6 py-3 text-sm uppercase tracking-wide transition-colors duration-300 border-b-2 -mb-[2px] ${
+                activeTab === tab
+                  ? "border-purple-600 text-purple-600 font-semibold"
+                  : "border-transparent text-neutral-500 hover:text-neutral-900"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {items.map((item) => (
+            <div
+              key={item.name ?? item.title}
+              className="border border-neutral-100 p-6 hover:border-purple-300 hover:shadow-md transition-all duration-300 group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="bg-purple-50 group-hover:bg-purple-100 p-3 transition-colors duration-300">
+                  <Icon name={(item as { icon: string }).icon as Parameters<typeof Icon>[0]["name"]} size={22} className="text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className="font-semibold text-neutral-900">{item.name ?? (item as { title: string }).title}</h4>
+                    {"price" in item && (
+                      <span className="text-purple-600 text-sm font-bold">{(item as { price: string }).price}</span>
+                    )}
+                  </div>
+                  <p className="text-neutral-500 text-sm leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
