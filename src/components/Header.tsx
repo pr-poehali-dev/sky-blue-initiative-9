@@ -4,17 +4,20 @@ import Icon from "@/components/ui/icon";
 interface HeaderProps {
   className?: string;
   onAuthClick?: () => void;
+  onProfileClick?: () => void;
   user?: { username: string; first_name?: string } | null;
   onLogout?: () => void;
 }
 
-export default function Header({ className, onAuthClick, user, onLogout }: HeaderProps) {
+export default function Header({ className, onAuthClick, onProfileClick, user, onLogout }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     setMenuOpen(false);
   };
+
+  const avatarUrl = user ? localStorage.getItem("tg_avatar") : null;
 
   return (
     <header className={`absolute top-0 left-0 right-0 z-50 p-6 ${className ?? ""}`}>
@@ -45,12 +48,20 @@ export default function Header({ className, onAuthClick, user, onLogout }: Heade
 
           {user ? (
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-white text-sm">
-                <div className="bg-purple-600 w-7 h-7 flex items-center justify-center text-xs font-bold">
-                  {(user.first_name || user.username || "U")[0].toUpperCase()}
-                </div>
+              <button
+                onClick={onProfileClick}
+                className="flex items-center gap-2 text-white text-sm hover:opacity-80 transition-opacity"
+                title="Открыть профиль"
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="avatar" className="w-8 h-8 rounded-full object-cover ring-2 ring-purple-500" />
+                ) : (
+                  <div className="bg-purple-600 w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full">
+                    {(user.first_name || user.username || "U")[0].toUpperCase()}
+                  </div>
+                )}
                 <span className="opacity-80">@{user.username}</span>
-              </div>
+              </button>
               <button
                 onClick={onLogout}
                 className="text-neutral-400 hover:text-white transition-colors duration-300 text-xs uppercase tracking-wide"
@@ -81,7 +92,16 @@ export default function Header({ className, onAuthClick, user, onLogout }: Heade
           <button onClick={() => scrollTo("support")} className="text-white text-sm uppercase">Поддержка</button>
           {user ? (
             <div className="flex items-center justify-between">
-              <span className="text-white text-sm">@{user.username}</span>
+              <button onClick={() => { onProfileClick?.(); setMenuOpen(false); }} className="flex items-center gap-2">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover" />
+                ) : (
+                  <div className="bg-purple-600 w-7 h-7 flex items-center justify-center text-xs font-bold rounded-full text-white">
+                    {(user.first_name || user.username || "U")[0].toUpperCase()}
+                  </div>
+                )}
+                <span className="text-white text-sm">@{user.username}</span>
+              </button>
               <button onClick={onLogout} className="text-neutral-400 text-xs uppercase">Выйти</button>
             </div>
           ) : (

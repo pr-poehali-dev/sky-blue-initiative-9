@@ -58,6 +58,7 @@ function ProfileTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(localStorage.getItem("tg_avatar"));
 
   useEffect(() => {
     const token = localStorage.getItem("tg_session");
@@ -77,11 +78,20 @@ function ProfileTab() {
         headers: { "Content-Type": "application/json", "X-Session-Token": token },
         body: JSON.stringify({ action: "orders" }),
       }).then((r) => r.json()),
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": token },
+        body: JSON.stringify({ action: "get_avatar" }),
+      }).then((r) => r.json()),
     ])
-      .then(([profileData, ordersData]) => {
+      .then(([profileData, ordersData, avatarData]) => {
         if (profileData.ok) setProfile(profileData.user);
         else setError(profileData.error || "Ошибка");
         if (ordersData.ok) setOrders(ordersData.orders);
+        if (avatarData.ok && avatarData.avatar_url) {
+          setAvatarUrl(avatarData.avatar_url);
+          localStorage.setItem("tg_avatar", avatarData.avatar_url);
+        }
       })
       .catch(() => setError("Ошибка загрузки профиля"))
       .finally(() => setLoading(false));
@@ -126,9 +136,13 @@ function ProfileTab() {
     <div className="max-w-2xl">
       {/* Аватар и имя */}
       <div className="flex items-center gap-5 mb-10">
-        <div className="bg-purple-600 w-20 h-20 flex items-center justify-center text-white text-3xl font-bold shrink-0">
-          {(profile?.first_name || profile?.username || "U")[0].toUpperCase()}
-        </div>
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="avatar" className="w-20 h-20 object-cover rounded-full ring-4 ring-purple-100 shrink-0" />
+        ) : (
+          <div className="bg-purple-600 w-20 h-20 flex items-center justify-center text-white text-3xl font-bold shrink-0 rounded-full">
+            {(profile?.first_name || profile?.username || "U")[0].toUpperCase()}
+          </div>
+        )}
         <div>
           <h3 className="text-2xl font-bold text-neutral-900">
             {profile?.first_name || `@${profile?.username}`}
@@ -229,8 +243,19 @@ function ProfileTab() {
   );
 }
 
-export default function Featured() {
+interface FeaturedProps {
+  onRegisterOpenProfile?: (fn: () => void) => void;
+}
+
+export default function Featured({ onRegisterOpenProfile }: FeaturedProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Ассортимент");
+
+  const openProfile = () => setActiveTab("Профиль");
+
+  useEffect(() => {
+    onRegisterOpenProfile?.(openProfile);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const items = activeTab === "Ассортимент" ? catalog : activeTab === "Доставка" ? delivery : support;
 

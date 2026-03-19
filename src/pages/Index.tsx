@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Featured from "@/components/Featured";
@@ -9,6 +9,7 @@ import TelegramAuthModal from "@/components/TelegramAuthModal";
 const Index = () => {
   const [authOpen, setAuthOpen] = useState(false);
   const [user, setUser] = useState<{ username: string; first_name?: string } | null>(null);
+  const openProfileRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("tg_user");
@@ -21,15 +22,21 @@ const Index = () => {
     setUser(null);
   };
 
+  const handleProfileClick = () => {
+    document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => openProfileRef.current?.(), 400);
+  };
+
   return (
     <main className="min-h-screen">
       <Header
         onAuthClick={() => setAuthOpen(true)}
         user={user}
         onLogout={handleLogout}
+        onProfileClick={handleProfileClick}
       />
       <Hero />
-      <Featured />
+      <Featured onRegisterOpenProfile={(fn) => { openProfileRef.current = fn; }} />
       <Promo />
       <Footer />
       <TelegramAuthModal

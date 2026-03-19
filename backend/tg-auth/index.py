@@ -205,4 +205,41 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 200, 'headers': CORS_HEADERS,
                 'body': json.dumps({'ok': True, 'orders': orders})}
 
+    # --- Фото профиля из Telegram ---
+    if action == 'get_avatar':
+        token = (event.get('headers') or {}).get('X-Session-Token')
+        if not token:
+            return {'statusCode': 401, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Не авторизован'})}
+
+        row = get_user_by_token(token)
+        if not row:
+            return {'statusCode': 401, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Сессия недействительна'})}
+
+        telegram_id = row[1]
+        tg_token = os.environ['TELEGRAM_BOT_TOKEN']
+
+        photos_url = f"https://api.telegram.org/bot{tg_token}/getUserProfilePhotos?user_id={telegram_id}&limit=1"
+        req = urllib.request.Request(photos_url)
+        with urllib.request.urlopen(req) as resp:
+            photos_data = json.loads(resp.read())
+
+        photos = photos_data.get('result', {}).get('photos', [])
+        if not photos:
+            return {'statusCode': 200, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'ok': True, 'avatar_url': None})}
+
+        file_id = photos[0][-1]['file_id']
+        file_url = f"https://api.telegram.org/bot{tg_token}/getFile?file_id={file_id}"
+        req2 = urllib.request.Request(file_url)
+        with urllib.request.urlopen(req2) as resp2:
+            file_data = json.loads(resp2.read())
+
+        file_path = file_data['result']['file_path']
+        avatar_url = f"https://api.telegram.org/file/bot{tg_token}/{file_path}"
+
+        return {'statusCode': 200, 'headers': CORS_HEADERS,
+                'body': json.dumps({'ok': True, 'avatar_url': avatar_url})}
+
     return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'Неизвестное действие'})}
