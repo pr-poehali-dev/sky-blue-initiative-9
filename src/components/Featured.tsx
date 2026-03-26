@@ -114,12 +114,7 @@ function CatalogTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orderOpen, setOrderOpen] = useState(false);
-  const [address, setAddress] = useState("");
-  const [note, setNote] = useState("");
-  const [ordering, setOrdering] = useState(false);
-  const [orderDone, setOrderDone] = useState(false);
-  const [orderError, setOrderError] = useState("");
+  const [cartOpen, setCartOpen] = useState(false);
   const [filterBrand, setFilterBrand] = useState<string | null>(null);
   const [filterCat, setFilterCat] = useState<string | null>(null);
 
@@ -142,41 +137,17 @@ function CatalogTab() {
       if (ex) return prev.map((c) => c.id === p.id ? { ...c, qty: c.qty + 1 } : c);
       return [...prev, { ...p, qty: 1 }];
     });
+    setCartOpen(true);
   };
 
   const removeFromCart = (id: number) => setCart((prev) => prev.filter((c) => c.id !== id));
   const changeQty = (id: number, delta: number) =>
     setCart((prev) => prev.map((c) => c.id === id ? { ...c, qty: Math.max(1, c.qty + delta) } : c));
 
-  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const cartCount = cart.reduce((s, c) => s + c.qty, 0);
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
 
-  const handleOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const token = localStorage.getItem("tg_session");
-    if (!token) { setOrderError("Войдите через Telegram для оформления заказа"); return; }
-    setOrdering(true); setOrderError("");
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Session-Token": token },
-        body: JSON.stringify({
-          action: "create_order",
-          items: cart.map((c) => ({ name: c.name, qty: c.qty, price: c.price })),
-          address, note,
-        }),
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "Ошибка");
-      setOrderDone(true);
-      setCart([]);
-      setTimeout(() => { setOrderOpen(false); setOrderDone(false); setAddress(""); setNote(""); }, 3000);
-    } catch (err: unknown) {
-      setOrderError(err instanceof Error ? err.message : "Ошибка");
-    } finally {
-      setOrdering(false);
-    }
-  };
+  const handleCartClose = () => { setCart([]); setCartOpen(false); };
 
   const categories = [...new Set(products.map((p) => p.category))].filter(Boolean);
   const brands = [...new Set(products.map((p) => p.brand).filter(Boolean))] as string[];
@@ -186,7 +157,6 @@ function CatalogTab() {
     (!filterBrand || p.brand === filterBrand)
   );
 
-  // Группировка: категория → бренд → товары
   const grouped: Record<string, Record<string, Product[]>> = {};
   for (const p of filtered) {
     const cat = p.category || "Прочее";
@@ -199,96 +169,45 @@ function CatalogTab() {
   if (loading) return <div className="flex justify-center py-20"><Icon name="Loader" size={32} className="animate-spin text-purple-600" /></div>;
 
   return (
-    <div>
+    <div className="pb-24">
+      {/* Drawer корзины */}
+      {cartOpen && (
+        <CartDrawer cart={cart} onChangeQty={changeQty} onRemove={removeFromCart} onClose={handleCartClose} />
+      )}
+
+      {/* FAB — плавающая кнопка корзины */}
+      {cart.length > 0 && !cartOpen && (
+        <button
+          onClick={() => setCartOpen(true)}
+          className="fixed bottom-6 right-4 sm:right-6 z-30 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white shadow-2xl flex items-center gap-3 px-5 py-3.5 transition-all duration-200 touch-manipulation"
+        >
+          <Icon name="ShoppingCart" size={20} />
+          <span className="font-bold text-sm">{total.toLocaleString("ru-RU")} ₽</span>
+          <span className="bg-white text-purple-700 text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0">
+            {cartCount}
+          </span>
+        </button>
+      )}
+
       {/* Фильтры */}
       {(categories.length > 1 || brands.length > 0) && (
         <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => { setFilterCat(null); setFilterBrand(null); }}
-            className={`px-3 py-1 text-xs uppercase tracking-wide border transition-colors ${!filterCat && !filterBrand ? "bg-purple-600 text-white border-purple-600" : "border-neutral-200 text-neutral-500 hover:border-purple-400"}`}
-          >
+          <button onClick={() => { setFilterCat(null); setFilterBrand(null); }}
+            className={`px-3 py-1.5 text-xs uppercase tracking-wide border transition-colors touch-manipulation ${!filterCat && !filterBrand ? "bg-purple-600 text-white border-purple-600" : "border-neutral-200 text-neutral-500 hover:border-purple-400"}`}>
             Все
           </button>
           {categories.map((c) => (
             <button key={c} onClick={() => { setFilterCat(filterCat === c ? null : c); setFilterBrand(null); }}
-              className={`px-3 py-1 text-xs uppercase tracking-wide border transition-colors ${filterCat === c ? "bg-purple-600 text-white border-purple-600" : "border-neutral-200 text-neutral-500 hover:border-purple-400"}`}>
+              className={`px-3 py-1.5 text-xs uppercase tracking-wide border transition-colors touch-manipulation ${filterCat === c ? "bg-purple-600 text-white border-purple-600" : "border-neutral-200 text-neutral-500 hover:border-purple-400"}`}>
               {c}
             </button>
           ))}
           {brands.map((b) => (
             <button key={b} onClick={() => { setFilterBrand(filterBrand === b ? null : b); setFilterCat(null); }}
-              className={`px-3 py-1 text-xs tracking-wide border transition-colors ${filterBrand === b ? "bg-neutral-900 text-white border-neutral-900" : "border-neutral-200 text-neutral-500 hover:border-neutral-400"}`}>
+              className={`px-3 py-1.5 text-xs tracking-wide border transition-colors touch-manipulation ${filterBrand === b ? "bg-neutral-900 text-white border-neutral-900" : "border-neutral-200 text-neutral-500 hover:border-neutral-400"}`}>
               {b}
             </button>
           ))}
-        </div>
-      )}
-
-      {/* Корзина-плашка */}
-      {cart.length > 0 && !orderOpen && (
-        <div className="mb-6 p-4 bg-purple-50 border border-purple-200 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Icon name="ShoppingCart" size={20} className="text-purple-600" />
-            <span className="text-sm font-medium text-purple-800">{cartCount} товар(а) · {total.toLocaleString("ru-RU")} ₽</span>
-          </div>
-          <button onClick={() => setOrderOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 text-sm uppercase tracking-wide transition-colors">
-            Оформить заказ
-          </button>
-        </div>
-      )}
-
-      {/* Форма заказа */}
-      {orderOpen && (
-        <div className="mb-8 border border-purple-200 p-6 bg-purple-50">
-          <h4 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
-            <Icon name="ShoppingBag" size={20} className="text-purple-600" />
-            Оформление заказа
-          </h4>
-          {orderDone ? (
-            <div className="flex flex-col items-center gap-3 py-6">
-              <Icon name="CheckCircle" size={48} className="text-green-500" />
-              <p className="text-green-700 font-semibold text-lg">Заказ оформлен!</p>
-              <p className="text-neutral-500 text-sm">Мы уведомим вас в Telegram о статусе доставки.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleOrder} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                {cart.map((c) => (
-                  <div key={c.id} className="flex items-center gap-3 bg-white border border-neutral-100 px-4 py-2">
-                    <span className="flex-1 text-sm text-neutral-800">{c.name}</span>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => changeQty(c.id, -1)} className="w-6 h-6 border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-100">−</button>
-                      <span className="text-sm w-5 text-center">{c.qty}</span>
-                      <button type="button" onClick={() => changeQty(c.id, 1)} className="w-6 h-6 border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-100">+</button>
-                    </div>
-                    <span className="text-sm font-semibold text-neutral-800 w-20 text-right">{(c.price * c.qty).toLocaleString("ru-RU")} ₽</span>
-                    <button type="button" onClick={() => removeFromCart(c.id)} className="text-neutral-300 hover:text-red-400 transition-colors">
-                      <Icon name="X" size={14} />
-                    </button>
-                  </div>
-                ))}
-                <div className="text-right text-sm font-bold text-neutral-900 pr-2">Итого: {total.toLocaleString("ru-RU")} ₽</div>
-              </div>
-              <input type="text" placeholder="Адрес доставки (улица, дом, квартира)" value={address}
-                onChange={(e) => setAddress(e.target.value)} required
-                className="border border-neutral-200 px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-colors bg-white" />
-              <input type="text" placeholder="Комментарий к заказу (необязательно)" value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="border border-neutral-200 px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-colors bg-white" />
-              {orderError && <p className="text-red-500 text-sm">{orderError}</p>}
-              <div className="flex gap-2">
-                <button type="submit" disabled={ordering}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 text-white py-3.5 uppercase tracking-wide text-sm transition-colors flex items-center justify-center gap-2 touch-manipulation">
-                  {ordering && <Icon name="Loader" size={14} className="animate-spin" />}
-                  {ordering ? "Отправляем..." : "Подтвердить"}
-                </button>
-                <button type="button" onClick={() => setOrderOpen(false)}
-                  className="px-4 py-3.5 border border-neutral-200 text-sm text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 transition-colors touch-manipulation">
-                  Назад
-                </button>
-              </div>
-            </form>
-          )}
         </div>
       )}
 
