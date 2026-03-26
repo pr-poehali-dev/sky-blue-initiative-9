@@ -41,6 +41,15 @@
       "expectedStatus": 401,
       "expectedBody": {"error": "Не авторизован"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "get_sections returns ok",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_sections"},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
     }
   ]
 }

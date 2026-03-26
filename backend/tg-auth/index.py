@@ -1,13 +1,16 @@
 """
-Авторизация, профиль, товары, заказы и управление для магазина FlavorClouds.
+Авторизация, профиль, товары, заказы, разделы страниц и управление для магазина FlavorClouds.
 """
 import json
 import os
 import random
 import string
 import hashlib
+import base64
 import psycopg2
 import urllib.request
+import boto3
+import uuid
 
 CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -55,6 +58,15 @@ def generate_token():
 
 def get_db():
     return psycopg2.connect(os.environ['DATABASE_URL'])
+
+
+def get_s3():
+    return boto3.client(
+        's3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+    )
 
 
 def get_user_by_token(token: str):
@@ -227,13 +239,16 @@ def handler(event: dict, context) -> dict:
     if action == 'get_products':
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(f"SELECT id, name, description, price, category, icon, active FROM {SCHEMA}.products ORDER BY category, name")
+        cur.execute(
+            f"SELECT id, name, description, price, category, icon, active, brand, image_url, sort_order FROM {SCHEMA}.products ORDER BY category, brand NULLS LAST, sort_order, name"
+        )
         rows = cur.fetchall()
         cur.close()
         conn.close()
         products = [
             {'id': r[0], 'name': r[1], 'description': r[2], 'price': r[3],
-             'category': r[4], 'icon': r[5], 'active': r[6]}
+             'category': r[4], 'icon': r[5], 'active': r[6],
+             'brand': r[7], 'image_url': r[8], 'sort_order': r[9]}
             for r in rows
         ]
         return ok({'ok': True, 'products': products})
@@ -251,23 +266,37 @@ def handler(event: dict, context) -> dict:
         price = int(body.get('price', 0))
         category = body.get('category', '').strip()
         icon = body.get('icon', 'Package').strip()
+        brand = body.get('brand', '').strip() or None
+        sort_order = int(body.get('sort_order', 0))
 
         if not name or price <= 0:
             return err('Укажите название и цену')
 
+        # Загрузка фото
+        image_url = None
+        image_b64 = body.get('image_b64')
+        image_mime = body.get('image_mime', 'image/jpeg')
+        if image_b64:
+            image_data = base64.b64decode(image_b64)
+            ext = 'jpg' if 'jpeg' in image_mime else image_mime.split('/')[-1]
+            key = f"products/{uuid.uuid4()}.{ext}"
+            s3 = get_s3()
+            s3.put_object(Bucket='files', Key=key, Body=image_data, ContentType=image_mime)
+            image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+
         conn = get_db()
         cur = conn.cursor()
         cur.execute(
-            f"INSERT INTO {SCHEMA}.products (name, description, price, category, icon) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-            (name, description, price, category, icon)
+            f"INSERT INTO {SCHEMA}.products (name, description, price, category, icon, brand, image_url, sort_order) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (name, description, price, category, icon, brand, image_url, sort_order)
         )
         product_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
-        return ok({'ok': True, 'id': product_id})
+        return ok({'ok': True, 'id': product_id, 'image_url': image_url})
 
-    # ── Изменить цену / обновить товар (admin) ─────────────────────
+    # ── Обновить товар (admin) ─────────────────────────────────────
     if action == 'update_product':
         row, error = require_auth(event)
         if error:
@@ -279,9 +308,20 @@ def handler(event: dict, context) -> dict:
         if not product_id:
             return err('Нет id товара')
 
+        # Загрузка фото если передан base64
+        image_b64 = body.get('image_b64')
+        image_mime = body.get('image_mime', 'image/jpeg')
+        if image_b64:
+            image_data = base64.b64decode(image_b64)
+            ext = 'jpg' if 'jpeg' in image_mime else image_mime.split('/')[-1]
+            key = f"products/{uuid.uuid4()}.{ext}"
+            s3 = get_s3()
+            s3.put_object(Bucket='files', Key=key, Body=image_data, ContentType=image_mime)
+            body['image_url'] = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+
         fields = []
         values = []
-        for field in ['name', 'description', 'price', 'category', 'icon']:
+        for field in ['name', 'description', 'price', 'category', 'icon', 'brand', 'image_url', 'sort_order']:
             if field in body:
                 fields.append(f"{field} = %s")
                 values.append(body[field])
@@ -295,7 +335,7 @@ def handler(event: dict, context) -> dict:
         conn.commit()
         cur.close()
         conn.close()
-        return ok({'ok': True})
+        return ok({'ok': True, 'image_url': body.get('image_url')})
 
     # ── Удалить товар (admin) ──────────────────────────────────────
     if action == 'delete_product':
@@ -312,6 +352,77 @@ def handler(event: dict, context) -> dict:
         conn = get_db()
         cur = conn.cursor()
         cur.execute(f"UPDATE {SCHEMA}.products SET active = false WHERE id = %s", (product_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return ok({'ok': True})
+
+    # ── Восстановить товар (admin) ─────────────────────────────────
+    if action == 'restore_product':
+        row, error = require_auth(event)
+        if error:
+            return error
+        if row[5] != 'admin':
+            return err('Нет прав', 403)
+
+        product_id = body.get('id')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f"UPDATE {SCHEMA}.products SET active = true WHERE id = %s", (product_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return ok({'ok': True})
+
+    # ── Разделы страницы (доставка / поддержка) ────────────────────
+    if action == 'get_sections':
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f"SELECT section_key, title, content FROM {SCHEMA}.page_sections")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        sections = {r[0]: {'title': r[1], 'content': r[2]} for r in rows}
+        return ok({'ok': True, 'sections': sections})
+
+    # ── Обновить раздел (admin) ────────────────────────────────────
+    if action == 'update_section':
+        row, error = require_auth(event)
+        if error:
+            return error
+        if row[5] != 'admin':
+            return err('Нет прав', 403)
+
+        section_key = body.get('section_key', '').strip()
+        title = body.get('title')
+        content = body.get('content')
+
+        if not section_key:
+            return err('Нет section_key')
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        fields = []
+        values = []
+        if title is not None:
+            fields.append("title = %s")
+            values.append(title)
+        if content is not None:
+            fields.append("content = %s")
+            values.append(json.dumps(content, ensure_ascii=False))
+        fields.append("updated_at = NOW()")
+        values.append(section_key)
+
+        cur.execute(
+            f"UPDATE {SCHEMA}.page_sections SET {', '.join(fields)} WHERE section_key = %s",
+            values
+        )
+        if cur.rowcount == 0:
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.page_sections (section_key, title, content) VALUES (%s, %s, %s)",
+                (section_key, title or section_key, json.dumps(content or [], ensure_ascii=False))
+            )
         conn.commit()
         cur.close()
         conn.close()
@@ -373,7 +484,6 @@ def handler(event: dict, context) -> dict:
         )
         order_id = cur.fetchone()[0]
 
-        # Уведомляем всех admin и courier
         cur.execute(f"SELECT telegram_id, position FROM {SCHEMA}.users WHERE position IN ('admin', 'courier')")
         staff = cur.fetchall()
         conn.commit()
@@ -393,9 +503,8 @@ def handler(event: dict, context) -> dict:
             msg_text += f"\nКомментарий: {note}"
 
         for staff_row in staff:
-            staff_tg_id, staff_pos = staff_row
             try:
-                send_telegram_message(staff_tg_id, msg_text)
+                send_telegram_message(staff_row[0], msg_text)
             except Exception:
                 pass
 
@@ -448,7 +557,6 @@ def handler(event: dict, context) -> dict:
 
         conn = get_db()
         cur = conn.cursor()
-
         cur.execute(
             f"UPDATE {SCHEMA}.orders SET status = 'done' WHERE id = %s AND status != 'done' RETURNING user_id",
             (order_id,)
@@ -457,9 +565,7 @@ def handler(event: dict, context) -> dict:
         conn.commit()
 
         if updated:
-            client_user_id = updated[0]
-            # Отправляем уведомление клиенту
-            cur.execute(f"SELECT telegram_id, first_name, username FROM {SCHEMA}.users WHERE id = %s", (client_user_id,))
+            cur.execute(f"SELECT telegram_id FROM {SCHEMA}.users WHERE id = %s", (updated[0],))
             client = cur.fetchone()
             if client:
                 try:
