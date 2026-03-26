@@ -12,6 +12,34 @@
       "path": "/",
       "body": {"action": "send_code", "username": ""},
       "expectedStatus": 400,
+      "expectedBody": {"error": "Укажите username Telegram"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "get_products returns list",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_products"},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "add_product without auth returns 401",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "add_product", "name": "Test", "price": 100},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "Не авторизован"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "create_order without auth returns 401",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "create_order", "items": [], "address": "Test"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "Не авторизован"},
       "bodyMatcher": "partial"
     }
   ]

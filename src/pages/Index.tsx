@@ -8,7 +8,7 @@ import TelegramAuthModal from "@/components/TelegramAuthModal";
 
 const Index = () => {
   const [authOpen, setAuthOpen] = useState(false);
-  const [user, setUser] = useState<{ username: string; first_name?: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; first_name?: string; position?: string } | null>(null);
   const openProfileRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {

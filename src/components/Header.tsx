@@ -5,7 +5,7 @@ interface HeaderProps {
   className?: string;
   onAuthClick?: () => void;
   onProfileClick?: () => void;
-  user?: { username: string; first_name?: string } | null;
+  user?: { username: string; first_name?: string; position?: string } | null;
   onLogout?: () => void;
 }
 
@@ -60,7 +60,9 @@ export default function Header({ className, onAuthClick, onProfileClick, user, o
                     {(user.first_name || user.username || "U")[0].toUpperCase()}
                   </div>
                 )}
-                <span className="opacity-80">@{user.username}</span>
+                <span className={user.position === "admin" || user.position === "courier" ? "text-green-400 font-semibold" : "opacity-80"}>
+                  @{user.username}
+                </span>
               </button>
               <button
                 onClick={onLogout}
