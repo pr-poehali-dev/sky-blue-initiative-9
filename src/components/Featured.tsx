@@ -276,14 +276,14 @@ function CatalogTab() {
                 onChange={(e) => setNote(e.target.value)}
                 className="border border-neutral-200 px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-colors bg-white" />
               {orderError && <p className="text-red-500 text-sm">{orderError}</p>}
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button type="submit" disabled={ordering}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white py-3 uppercase tracking-wide text-sm transition-colors flex items-center justify-center gap-2">
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 text-white py-3.5 uppercase tracking-wide text-sm transition-colors flex items-center justify-center gap-2 touch-manipulation">
                   {ordering && <Icon name="Loader" size={14} className="animate-spin" />}
-                  {ordering ? "Отправляем..." : "Подтвердить заказ"}
+                  {ordering ? "Отправляем..." : "Подтвердить"}
                 </button>
                 <button type="button" onClick={() => setOrderOpen(false)}
-                  className="px-4 py-3 border border-neutral-200 text-sm text-neutral-600 hover:bg-neutral-50 transition-colors">
+                  className="px-4 py-3.5 border border-neutral-200 text-sm text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 transition-colors touch-manipulation">
                   Назад
                 </button>
               </div>
@@ -564,35 +564,33 @@ function AdminPanel() {
       {tab === "products" && (
         <div className="flex flex-col gap-6">
           {/* Добавить товар */}
-          <form onSubmit={handleAddProduct} className="border border-green-100 p-5 bg-green-50 flex flex-col gap-3">
+          <form onSubmit={handleAddProduct} className="border border-green-100 p-4 sm:p-5 bg-green-50 flex flex-col gap-3">
             <h4 className="font-semibold text-green-800 text-sm uppercase tracking-wide">Добавить товар</h4>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
               <input required placeholder="Название" value={newProduct.name}
                 onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                className="border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400 col-span-2" />
-              <input required placeholder="Цена ₽" type="number" value={newProduct.price}
-                onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
                 className="border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
-              <input placeholder="Порядок сортировки" type="number" value={newProduct.sort_order}
-                onChange={(e) => setNewProduct({ ...newProduct, sort_order: e.target.value })}
-                className="border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
-              {/* Категория — можно выбрать существующую или ввести свою */}
-              <div className="flex gap-1">
-                <input list="cats-list" placeholder="Категория" value={newProduct.category}
-                  onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                  className="flex-1 border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
-                <datalist id="cats-list">
-                  {existingCats.map((c) => <option key={c} value={c} />)}
-                </datalist>
+              <div className="grid grid-cols-2 gap-2">
+                <input required placeholder="Цена ₽" type="number" value={newProduct.price}
+                  onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                  className="border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
+                <input placeholder="Порядок" type="number" value={newProduct.sort_order}
+                  onChange={(e) => setNewProduct({ ...newProduct, sort_order: e.target.value })}
+                  className="border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
               </div>
-              {/* Бренд — можно выбрать существующий или ввести свой */}
-              <div className="flex gap-1">
-                <input list="brands-list" placeholder="Бренд (марка)" value={newProduct.brand}
-                  onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
-                  className="flex-1 border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
-                <datalist id="brands-list">
-                  {existingBrands.map((b) => <option key={b} value={b} />)}
-                </datalist>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <input list="cats-list" placeholder="Категория" value={newProduct.category}
+                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                    className="w-full border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
+                  <datalist id="cats-list">{existingCats.map((c) => <option key={c} value={c} />)}</datalist>
+                </div>
+                <div>
+                  <input list="brands-list" placeholder="Бренд" value={newProduct.brand}
+                    onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                    className="w-full border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
+                  <datalist id="brands-list">{existingBrands.map((b) => <option key={b} value={b} />)}</datalist>
+                </div>
               </div>
               <input placeholder="Иконка (Package, Zap, Wind...)" value={newProduct.icon}
                 onChange={(e) => setNewProduct({ ...newProduct, icon: e.target.value })}
@@ -732,9 +730,9 @@ function AdminPanel() {
       {/* ── Сотрудники ── */}
       {tab === "users" && (
         <div className="flex flex-col gap-6">
-          <form onSubmit={handleSetPosition} className="border border-green-100 p-5 bg-green-50 flex flex-col gap-3">
+          <form onSubmit={handleSetPosition} className="border border-green-100 p-4 sm:p-5 bg-green-50 flex flex-col gap-3">
             <h4 className="font-semibold text-green-800 text-sm uppercase tracking-wide">Назначить должность</h4>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input required placeholder="@username" value={posUsername}
                 onChange={(e) => setPosUsername(e.target.value)}
                 className="flex-1 border border-neutral-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-green-400" />
@@ -969,18 +967,18 @@ function ProfileTab() {
 
       {!isAdmin && !isCourier && (
         <>
-          <div className="grid grid-cols-2 gap-4 mb-10">
-            <div className="border border-neutral-100 p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <Icon name="CalendarDays" size={20} className="text-purple-500" />
-                <span className="text-sm text-neutral-500 uppercase tracking-wide">Дата регистрации</span>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-8 md:mb-10">
+            <div className="border border-neutral-100 p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon name="CalendarDays" size={18} className="text-purple-500" />
+                <span className="text-xs sm:text-sm text-neutral-500 uppercase tracking-wide">Регистрация</span>
               </div>
-              <p className="text-lg font-semibold text-neutral-900">{registeredDate}</p>
+              <p className="text-sm sm:text-lg font-semibold text-neutral-900">{registeredDate}</p>
             </div>
-            <div className="border border-neutral-100 p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <Icon name="ShoppingBag" size={20} className="text-purple-500" />
-                <span className="text-sm text-neutral-500 uppercase tracking-wide">Доставлено заказов</span>
+            <div className="border border-neutral-100 p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon name="ShoppingBag" size={18} className="text-purple-500" />
+                <span className="text-xs sm:text-sm text-neutral-500 uppercase tracking-wide">Заказов</span>
               </div>
               <p className="text-3xl font-bold text-purple-600">{profile?.orders_count ?? 0}</p>
             </div>
