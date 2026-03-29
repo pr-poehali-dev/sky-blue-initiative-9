@@ -109,6 +109,139 @@ function StaticSection({ sectionKey }: { sectionKey: string }) {
   );
 }
 
+// ── Боковая панель корзины ────────────────────────────────────────────────
+interface CartDrawerProps {
+  cart: CartItem[];
+  onChangeQty: (id: number, delta: number) => void;
+  onRemove: (id: number) => void;
+  onClose: () => void;
+  onOrderSuccess: () => void;
+}
+
+function CartDrawer({ cart, onChangeQty, onRemove, onClose, onOrderSuccess }: CartDrawerProps) {
+  const [address, setAddress] = useState("");
+  const [note, setNote] = useState("");
+  const [ordering, setOrdering] = useState(false);
+  const [orderDone, setOrderDone] = useState(false);
+  const [orderError, setOrderError] = useState("");
+
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const cartCount = cart.reduce((s, c) => s + c.qty, 0);
+
+  const handleOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem("tg_session");
+    if (!token) { setOrderError("Войдите через Telegram для оформления заказа"); return; }
+    setOrdering(true); setOrderError("");
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": token },
+        body: JSON.stringify({
+          action: "create_order",
+          items: cart.map((c) => ({ name: c.name, qty: c.qty, price: c.price })),
+          address, note,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Ошибка");
+      setOrderDone(true);
+      setTimeout(() => { onOrderSuccess(); }, 2500);
+    } catch (err: unknown) {
+      setOrderError(err instanceof Error ? err.message : "Ошибка");
+    } finally {
+      setOrdering(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+
+      {/* Drawer */}
+      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-50 flex flex-col shadow-2xl">
+        {/* Шапка */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
+          <div className="flex items-center gap-2">
+            <Icon name="ShoppingCart" size={20} className="text-purple-600" />
+            <span className="font-bold text-neutral-900">Корзина</span>
+            <span className="bg-purple-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">{cartCount}</span>
+          </div>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700 transition-colors touch-manipulation p-1">
+            <Icon name="X" size={20} />
+          </button>
+        </div>
+
+        {orderDone ? (
+          <div className="flex flex-col items-center justify-center flex-1 gap-4 px-6">
+            <Icon name="CheckCircle" size={56} className="text-green-500" />
+            <p className="text-green-700 font-bold text-xl">Заказ оформлен!</p>
+            <p className="text-neutral-500 text-sm text-center">Мы уведомим вас в Telegram о статусе доставки.</p>
+          </div>
+        ) : (
+          <>
+            {/* Список товаров */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
+              {cart.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-40 gap-3 text-neutral-400">
+                  <Icon name="ShoppingCart" size={36} className="text-neutral-200" />
+                  <span className="text-sm">Корзина пуста</span>
+                </div>
+              )}
+              {cart.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 border border-neutral-100 p-3">
+                  {c.image_url ? (
+                    <img src={c.image_url} alt={c.name} className="w-14 h-14 object-cover shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 bg-purple-50 flex items-center justify-center shrink-0">
+                      <Icon name={c.icon as Parameters<typeof Icon>[0]["name"]} size={24} className="text-purple-300" fallback="Package" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-neutral-900 truncate">{c.name}</p>
+                    <p className="text-purple-600 font-bold text-sm">{(c.price * c.qty).toLocaleString("ru-RU")} ₽</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => onChangeQty(c.id, -1)} className="w-7 h-7 border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 touch-manipulation">−</button>
+                    <span className="text-sm w-5 text-center font-medium">{c.qty}</span>
+                    <button onClick={() => onChangeQty(c.id, 1)} className="w-7 h-7 border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 touch-manipulation">+</button>
+                    <button onClick={() => onRemove(c.id)} className="ml-1 text-neutral-300 hover:text-red-400 transition-colors touch-manipulation p-1">
+                      <Icon name="Trash2" size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Форма и итог */}
+            {cart.length > 0 && (
+              <form onSubmit={handleOrder} className="border-t border-neutral-100 px-5 py-4 flex flex-col gap-3 bg-white">
+                <div className="flex justify-between text-sm font-bold text-neutral-900">
+                  <span>Итого</span>
+                  <span className="text-purple-600">{total.toLocaleString("ru-RU")} ₽</span>
+                </div>
+                <input type="text" placeholder="Адрес доставки *" value={address}
+                  onChange={(e) => setAddress(e.target.value)} required
+                  className="border border-neutral-200 px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
+                <input type="text" placeholder="Комментарий к заказу" value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="border border-neutral-200 px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
+                {orderError && <p className="text-red-500 text-xs">{orderError}</p>}
+                <button type="submit" disabled={ordering}
+                  className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 text-white py-3.5 uppercase tracking-wide text-sm font-semibold transition-colors flex items-center justify-center gap-2 touch-manipulation">
+                  {ordering && <Icon name="Loader" size={14} className="animate-spin" />}
+                  {ordering ? "Оформляем..." : `Оформить заказ · ${total.toLocaleString("ru-RU")} ₽`}
+                </button>
+              </form>
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ── Ассортимент с корзиной ───────────────────────────────────────────────
 function CatalogTab() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -147,7 +280,8 @@ function CatalogTab() {
   const cartCount = cart.reduce((s, c) => s + c.qty, 0);
   const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
 
-  const handleCartClose = () => { setCart([]); setCartOpen(false); };
+  const handleCartClose = () => setCartOpen(false);
+  const handleOrderSuccess = () => { setCart([]); setCartOpen(false); };
 
   const categories = [...new Set(products.map((p) => p.category))].filter(Boolean);
   const brands = [...new Set(products.map((p) => p.brand).filter(Boolean))] as string[];
@@ -172,7 +306,7 @@ function CatalogTab() {
     <div className="pb-24">
       {/* Drawer корзины */}
       {cartOpen && (
-        <CartDrawer cart={cart} onChangeQty={changeQty} onRemove={removeFromCart} onClose={handleCartClose} />
+        <CartDrawer cart={cart} onChangeQty={changeQty} onRemove={removeFromCart} onClose={handleCartClose} onOrderSuccess={handleOrderSuccess} />
       )}
 
       {/* FAB — плавающая кнопка корзины */}
