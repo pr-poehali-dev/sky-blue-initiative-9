@@ -203,11 +203,11 @@ function CartDrawer({ cart, onChangeQty, onRemove, onClose, onOrderSuccess }: Ca
                     <p className="text-purple-600 font-bold text-sm">{(c.price * c.qty).toLocaleString("ru-RU")} ₽</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => onChangeQty(c.id, -1)} className="w-7 h-7 border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 touch-manipulation">−</button>
-                    <span className="text-sm w-5 text-center font-medium">{c.qty}</span>
-                    <button onClick={() => onChangeQty(c.id, 1)} className="w-7 h-7 border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 touch-manipulation">+</button>
-                    <button onClick={() => onRemove(c.id)} className="ml-1 text-neutral-300 hover:text-red-400 transition-colors touch-manipulation p-1">
-                      <Icon name="Trash2" size={14} />
+                    <button onClick={() => onChangeQty(c.id, -1)} className="w-9 h-9 border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 touch-manipulation text-base">−</button>
+                    <span className="text-sm w-6 text-center font-medium">{c.qty}</span>
+                    <button onClick={() => onChangeQty(c.id, 1)} className="w-9 h-9 border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 touch-manipulation text-base">+</button>
+                    <button onClick={() => onRemove(c.id)} className="ml-1 w-9 h-9 flex items-center justify-center text-neutral-300 hover:text-red-400 transition-colors touch-manipulation">
+                      <Icon name="Trash2" size={16} />
                     </button>
                   </div>
                 </div>
@@ -302,7 +302,7 @@ function CatalogTab() {
   if (loading) return <div className="flex justify-center py-20"><Icon name="Loader" size={32} className="animate-spin text-purple-600" /></div>;
 
   return (
-    <div className="pb-24">
+    <div className="pb-28">
       {/* Drawer корзины */}
       {cartOpen && (
         <CartDrawer cart={cart} onChangeQty={changeQty} onRemove={removeFromCart} onClose={handleCartClose} onOrderSuccess={handleOrderSuccess} />
@@ -312,9 +312,9 @@ function CatalogTab() {
       {cart.length > 0 && !cartOpen && (
         <button
           onClick={() => setCartOpen(true)}
-          className="fixed bottom-6 right-4 sm:right-6 z-30 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white shadow-2xl flex items-center gap-3 px-5 py-3.5 transition-all duration-200 touch-manipulation"
+          className="fixed bottom-5 right-4 z-30 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white shadow-2xl flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-3.5 transition-all duration-200 touch-manipulation rounded-sm"
         >
-          <Icon name="ShoppingCart" size={20} />
+          <Icon name="ShoppingCart" size={18} />
           <span className="font-bold text-sm">{total.toLocaleString("ru-RU")} ₽</span>
           <span className="bg-white text-purple-700 text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0">
             {cartCount}
@@ -322,22 +322,22 @@ function CatalogTab() {
         </button>
       )}
 
-      {/* Фильтры */}
+      {/* Фильтры — горизонтальный скролл на мобильных */}
       {(categories.length > 1 || brands.length > 0) && (
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
           <button onClick={() => { setFilterCat(null); setFilterBrand(null); }}
-            className={`px-3 py-1.5 text-xs uppercase tracking-wide border transition-colors touch-manipulation ${!filterCat && !filterBrand ? "bg-purple-600 text-white border-purple-600" : "border-neutral-200 text-neutral-500 hover:border-purple-400"}`}>
+            className={`shrink-0 px-3 py-2 text-xs uppercase tracking-wide border transition-colors touch-manipulation ${!filterCat && !filterBrand ? "bg-purple-600 text-white border-purple-600" : "border-neutral-200 text-neutral-500 hover:border-purple-400"}`}>
             Все
           </button>
           {categories.map((c) => (
             <button key={c} onClick={() => { setFilterCat(filterCat === c ? null : c); setFilterBrand(null); }}
-              className={`px-3 py-1.5 text-xs uppercase tracking-wide border transition-colors touch-manipulation ${filterCat === c ? "bg-purple-600 text-white border-purple-600" : "border-neutral-200 text-neutral-500 hover:border-purple-400"}`}>
+              className={`shrink-0 px-3 py-2 text-xs uppercase tracking-wide border transition-colors touch-manipulation ${filterCat === c ? "bg-purple-600 text-white border-purple-600" : "border-neutral-200 text-neutral-500 hover:border-purple-400"}`}>
               {c}
             </button>
           ))}
           {brands.map((b) => (
             <button key={b} onClick={() => { setFilterBrand(filterBrand === b ? null : b); setFilterCat(null); }}
-              className={`px-3 py-1.5 text-xs tracking-wide border transition-colors touch-manipulation ${filterBrand === b ? "bg-neutral-900 text-white border-neutral-900" : "border-neutral-200 text-neutral-500 hover:border-neutral-400"}`}>
+              className={`shrink-0 px-3 py-2 text-xs tracking-wide border transition-colors touch-manipulation ${filterBrand === b ? "bg-neutral-900 text-white border-neutral-900" : "border-neutral-200 text-neutral-500 hover:border-neutral-400"}`}>
               {b}
             </button>
           ))}
@@ -360,26 +360,26 @@ function CatalogTab() {
                   {brand}
                 </p>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {prods.map((p) => (
                   <div key={p.id} className="border border-neutral-100 hover:border-purple-300 hover:shadow-sm transition-all duration-300 group flex flex-col overflow-hidden">
                     {p.image_url ? (
-                      <div className="w-full h-40 overflow-hidden bg-neutral-50">
+                      <div className="w-full h-32 sm:h-40 overflow-hidden bg-neutral-50">
                         <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       </div>
                     ) : (
-                      <div className="w-full h-32 bg-purple-50 group-hover:bg-purple-100 flex items-center justify-center transition-colors duration-300">
-                        <Icon name={p.icon as Parameters<typeof Icon>[0]["name"]} size={36} className="text-purple-300" fallback="Package" />
+                      <div className="w-full h-24 sm:h-32 bg-purple-50 group-hover:bg-purple-100 flex items-center justify-center transition-colors duration-300">
+                        <Icon name={p.icon as Parameters<typeof Icon>[0]["name"]} size={32} className="text-purple-300" fallback="Package" />
                       </div>
                     )}
-                    <div className="p-4 flex flex-col gap-2 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <h5 className="font-semibold text-neutral-900 text-sm leading-tight">{p.name}</h5>
-                        <span className="text-purple-600 font-bold text-sm shrink-0">{p.price.toLocaleString("ru-RU")} ₽</span>
+                    <div className="p-3 sm:p-4 flex flex-col gap-1.5 flex-1">
+                      <div className="flex flex-col gap-0.5">
+                        <h5 className="font-semibold text-neutral-900 text-xs sm:text-sm leading-tight line-clamp-2">{p.name}</h5>
+                        <span className="text-purple-600 font-bold text-sm">{p.price.toLocaleString("ru-RU")} ₽</span>
                       </div>
-                      <p className="text-neutral-500 text-xs leading-relaxed flex-1">{p.description}</p>
+                      <p className="text-neutral-500 text-xs leading-relaxed flex-1 line-clamp-2 hidden sm:block">{p.description}</p>
                       <button onClick={() => addToCart(p)}
-                        className="mt-1 w-full bg-neutral-900 hover:bg-purple-600 text-white py-2 text-xs uppercase tracking-wide transition-colors duration-300">
+                        className="mt-auto w-full bg-neutral-900 hover:bg-purple-600 active:bg-purple-700 text-white py-2.5 text-xs uppercase tracking-wide transition-colors duration-300 touch-manipulation">
                         В корзину
                       </button>
                     </div>
@@ -1122,25 +1122,25 @@ export default function Featured({ onRegisterOpenProfile }: FeaturedProps) {
   }, []);
 
   return (
-    <div id="catalog" className="min-h-screen bg-white px-6 py-20">
+    <div id="catalog" className="min-h-screen bg-white px-4 sm:px-6 py-14 sm:py-20">
       <div className="max-w-5xl mx-auto">
-        <h3 className="uppercase mb-4 text-sm tracking-widest text-neutral-500">Всё, что нужно</h3>
-        <h2 className="text-3xl md:text-5xl font-bold text-neutral-900 mb-12 leading-tight">
+        <h3 className="uppercase mb-3 text-xs sm:text-sm tracking-widest text-neutral-500">Всё, что нужно</h3>
+        <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-neutral-900 mb-8 sm:mb-12 leading-tight">
           Вейп-культура<br />без компромиссов
         </h2>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-10 border-b border-neutral-200 items-center flex-wrap">
+        {/* Tabs — горизонтальный скролл на мобильных */}
+        <div className="flex gap-1 mb-8 sm:mb-10 border-b border-neutral-200 items-center overflow-x-auto scrollbar-none -mx-1 px-1">
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="mr-2 text-neutral-400 hover:text-purple-600 transition-colors duration-300 pb-2" title="На главную">
-            <Icon name="ArrowLeft" size={20} />
+            className="shrink-0 mr-1 text-neutral-400 hover:text-purple-600 transition-colors duration-300 pb-2 p-2 touch-manipulation" title="На главную">
+            <Icon name="ArrowLeft" size={18} />
           </button>
           {TABS.map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               id={tab === "Доставка" ? "delivery" : tab === "Поддержка" ? "support" : undefined}
-              className={`px-6 py-3 text-sm uppercase tracking-wide transition-colors duration-300 border-b-2 -mb-[2px] flex items-center gap-2 ${
+              className={`shrink-0 px-3 sm:px-5 py-3 text-xs sm:text-sm uppercase tracking-wide transition-colors duration-300 border-b-2 -mb-[2px] flex items-center gap-1.5 touch-manipulation whitespace-nowrap ${
                 activeTab === tab ? "border-purple-600 text-purple-600 font-semibold" : "border-transparent text-neutral-500 hover:text-neutral-900"}`}>
-              {tab === "Профиль" && <Icon name="User" size={14} />}
+              {tab === "Профиль" && <Icon name="User" size={13} />}
               {tab}
             </button>
           ))}

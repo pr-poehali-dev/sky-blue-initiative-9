@@ -26,17 +26,17 @@ export default function Hero() {
         <div className="absolute inset-0 bg-black/50" />
       </motion.div>
 
-      <div className="relative z-10 text-center text-white px-4">
-        <p className="text-purple-400 uppercase tracking-[0.3em] text-sm mb-4">Премиальный вейп-магазин</p>
-        <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6">
+      <div className="relative z-10 text-center text-white px-4 w-full max-w-4xl mx-auto">
+        <p className="text-purple-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] text-xs sm:text-sm mb-3 sm:mb-4">Премиальный вейп-магазин</p>
+        <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-4 sm:mb-6">
           FLAVORCLOUDS
         </h1>
-        <p className="text-lg md:text-xl max-w-2xl mx-auto px-6 opacity-80 mb-8">
+        <p className="text-base sm:text-lg md:text-xl max-w-xl mx-auto opacity-80 mb-8 px-2">
           Широкий ассортимент вейпов, жидкостей и аксессуаров. Быстрая доставка по всей России.
         </p>
         <button
           onClick={() => document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" })}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 uppercase tracking-wide text-sm transition-colors duration-300"
+          className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white px-8 py-3.5 uppercase tracking-wide text-sm transition-colors duration-300 touch-manipulation"
         >
           Смотреть ассортимент
         </button>
