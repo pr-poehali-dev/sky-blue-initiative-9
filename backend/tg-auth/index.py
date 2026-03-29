@@ -18,8 +18,6 @@ CORS_HEADERS = {
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token',
 }
 
-_codes: dict = {}
-
 SCHEMA = 't_p1532187_sky_blue_initiative_'
 
 
@@ -120,7 +118,18 @@ def handler(event: dict, context) -> dict:
             return err('Пользователь не найден. Сначала напишите боту любое сообщение.', 404)
 
         code = generate_code()
-        _codes[username.lower().lstrip('@')] = {'code': code, 'chat_id': chat_id}
+        uname_clean = username.lower().lstrip('@')
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.auth_codes (username, code, chat_id, created_at) VALUES (%s, %s, %s, NOW()) ON CONFLICT (username) DO UPDATE SET code = EXCLUDED.code, chat_id = EXCLUDED.chat_id, created_at = NOW()",
+            (uname_clean, code, chat_id)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+
         send_telegram_message(chat_id, f"🔐 Ваш код для входа в FlavorClouds: <b>{code}</b>\n\nКод действителен 5 минут.")
         return ok({'ok': True, 'message': 'Код отправлен в Telegram'})
 
@@ -129,15 +138,21 @@ def handler(event: dict, context) -> dict:
         username = body.get('username', '').strip().lower().lstrip('@')
         code = body.get('code', '').strip()
 
-        stored = _codes.get(username)
-        if not stored or stored['code'] != code:
-            return err('Неверный код')
-
-        chat_id = stored['chat_id']
-        token = generate_token()
-
         conn = get_db()
         cur = conn.cursor()
+        cur.execute(
+            f"SELECT code, chat_id FROM {SCHEMA}.auth_codes WHERE username = %s AND created_at > NOW() - INTERVAL '10 minutes'",
+            (username,)
+        )
+        stored = cur.fetchone()
+        if not stored or stored[0] != code:
+            cur.close()
+            conn.close()
+            return err('Неверный код или код устарел')
+
+        chat_id = stored[1]
+        token = generate_token()
+
         cur.execute(
             f"""INSERT INTO {SCHEMA}.users (telegram_id, username, session_token, updated_at)
                VALUES (%s, %s, %s, NOW())
@@ -147,11 +162,10 @@ def handler(event: dict, context) -> dict:
             (chat_id, username, token)
         )
         row = cur.fetchone()
+        cur.execute(f"DELETE FROM {SCHEMA}.auth_codes WHERE username = %s", (username,))
         conn.commit()
         cur.close()
         conn.close()
-
-        del _codes[username]
 
         return ok({
             'ok': True,

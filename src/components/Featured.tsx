@@ -270,7 +270,6 @@ function CatalogTab() {
       if (ex) return prev.map((c) => c.id === p.id ? { ...c, qty: c.qty + 1 } : c);
       return [...prev, { ...p, qty: 1 }];
     });
-    setCartOpen(true);
   };
 
   const removeFromCart = (id: number) => setCart((prev) => prev.filter((c) => c.id !== id));
