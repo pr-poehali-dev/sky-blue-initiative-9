@@ -1,5 +1,6 @@
 """
 Авторизация, профиль, товары, заказы, разделы страниц и управление для магазина FlavorClouds.
+Версия: 2
 """
 import json
 import os
@@ -84,20 +85,20 @@ def require_auth(event):
     token = (event.get('headers') or {}).get('X-Session-Token')
     if not token:
         return None, {'statusCode': 401, 'headers': CORS_HEADERS,
-                      'body': json.dumps({'error': 'Не авторизован'})}
+                      'body': json.dumps({'error': 'Не авторизован'}, ensure_ascii=False)}
     row = get_user_by_token(token)
     if not row:
         return None, {'statusCode': 401, 'headers': CORS_HEADERS,
-                      'body': json.dumps({'error': 'Сессия недействительна'})}
+                      'body': json.dumps({'error': 'Сессия недействительна'}, ensure_ascii=False)}
     return row, None
 
 
 def ok(data: dict):
-    return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': json.dumps(data, ensure_ascii=False)}
+    return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': json.dumps(data, ensure_ascii=False), 'isBase64Encoded': False}
 
 
 def err(msg: str, code: int = 400):
-    return {'statusCode': code, 'headers': CORS_HEADERS, 'body': json.dumps({'error': msg})}
+    return {'statusCode': code, 'headers': CORS_HEADERS, 'body': json.dumps({'error': msg}, ensure_ascii=False), 'isBase64Encoded': False}
 
 
 def handler(event: dict, context) -> dict:
