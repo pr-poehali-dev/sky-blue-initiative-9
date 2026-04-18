@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
-
-const API_URL = "https://functions.poehali.dev/7b024c21-5cd0-4f27-b3e7-6fd2f6449619";
+import { apiCall } from "@/lib/api";
 
 const TABS = ["Ассортимент", "Доставка", "Поддержка", "Профиль"] as const;
 type Tab = typeof TABS[number];
@@ -75,20 +74,31 @@ function readFileAsBase64(file: File): Promise<string> {
 // ── Секция (Доставка / Поддержка) ─────────────────────────────────────────
 function StaticSection({ sectionKey }: { sectionKey: string }) {
   const [items, setItems] = useState<SectionItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get_sections" }),
-    })
-      .then((r) => r.json())
+    setLoading(true);
+    apiCall("get_sections")
       .then((d) => {
-        if (d.ok && d.sections[sectionKey]) {
-          setItems(d.sections[sectionKey].content || []);
+        const sections = d.sections as Record<string, { content: SectionItem[] }> | undefined;
+        if (d.ok && sections?.[sectionKey]) {
+          setItems(sections[sectionKey].content || []);
         }
-      });
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Ошибка загрузки"))
+      .finally(() => setLoading(false));
   }, [sectionKey]);
+
+  if (loading) return <div className="flex justify-center py-16"><Icon name="Loader" size={28} className="animate-spin text-purple-400" /></div>;
+  if (error) return (
+    <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <Icon name="WifiOff" size={32} className="text-neutral-300" />
+      <p className="text-neutral-500 text-sm">{error}</p>
+      <button onClick={() => { setError(""); setLoading(true); apiCall("get_sections").then((d) => { const s = d.sections as Record<string, { content: SectionItem[] }> | undefined; if (d.ok && s?.[sectionKey]) setItems(s[sectionKey].content || []); }).catch((e: unknown) => setError(e instanceof Error ? e.message : "Ошибка")).finally(() => setLoading(false)); }}
+        className="text-purple-600 text-sm hover:underline">Попробовать снова</button>
+    </div>
+  );
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -134,21 +144,15 @@ function CartDrawer({ cart, onChangeQty, onRemove, onClose, onOrderSuccess }: Ca
     if (!token) { setOrderError("Войдите через Telegram для оформления заказа"); return; }
     setOrdering(true); setOrderError("");
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Session-Token": token },
-        body: JSON.stringify({
-          action: "create_order",
-          items: cart.map((c) => ({ name: c.name, qty: c.qty, price: c.price })),
-          address, note,
-        }),
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "Ошибка");
+      const data = await apiCall("create_order", {
+        items: cart.map((c) => ({ name: c.name, qty: c.qty, price: c.price })),
+        address, note,
+      }, token);
+      if (!data.ok) throw new Error((data.error as string) || "Ошибка");
       setOrderDone(true);
       setTimeout(() => { onOrderSuccess(); }, 2500);
     } catch (err: unknown) {
-      setOrderError(err instanceof Error ? err.message : "Ошибка");
+      setOrderError(err instanceof Error ? err.message : "Ошибка оформления заказа");
     } finally {
       setOrdering(false);
     }
@@ -252,13 +256,12 @@ function CatalogTab() {
   const [filterCat, setFilterCat] = useState<string | null>(null);
 
   const loadProducts = () => {
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get_products" }),
-    })
-      .then((r) => r.json())
-      .then((d) => { if (d.ok) setProducts(d.products.filter((p: Product) => p.active)); })
+    setLoading(true);
+    apiCall("get_products")
+      .then((d) => {
+        if (d.ok) setProducts((d.products as Product[]).filter((p) => p.active));
+      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   };
 
@@ -406,13 +409,12 @@ function SectionEditor({ sectionKey, title }: { sectionKey: string; title: strin
   const token = localStorage.getItem("tg_session") || "";
 
   useEffect(() => {
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get_sections" }),
-    })
-      .then((r) => r.json())
-      .then((d) => { if (d.ok && d.sections[sectionKey]) setItems(d.sections[sectionKey].content || []); });
+    apiCall("get_sections")
+      .then((d) => {
+        const s = d.sections as Record<string, { content: SectionItem[] }> | undefined;
+        if (d.ok && s?.[sectionKey]) setItems(s[sectionKey].content || []);
+      })
+      .catch(() => {});
   }, [sectionKey]);
 
   const updateItem = (i: number, field: keyof SectionItem, value: string) => {
@@ -424,13 +426,14 @@ function SectionEditor({ sectionKey, title }: { sectionKey: string; title: strin
 
   const save = async () => {
     setSaving(true); setMsg("");
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Session-Token": token },
-      body: JSON.stringify({ action: "update_section", section_key: sectionKey, title, content: items }),
-    }).then((r) => r.json());
-    setMsg(res.ok ? "✅ Сохранено" : `❌ ${res.error}`);
-    setSaving(false);
+    try {
+      const res = await apiCall("update_section", { section_key: sectionKey, title, content: items }, token);
+      setMsg(res.ok ? "✅ Сохранено" : `❌ ${res.error ?? "Ошибка"}`);
+    } catch (e: unknown) {
+      setMsg(`❌ ${e instanceof Error ? e.message : "Ошибка сохранения"}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -480,16 +483,12 @@ function AdminPanel() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const token = localStorage.getItem("tg_session") || "";
 
-  const api = (body: object) =>
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Session-Token": token },
-      body: JSON.stringify(body),
-    }).then((r) => r.json());
+  const api = (action: string, params: Record<string, unknown> = {}) =>
+    apiCall(action, params, token);
 
   const load = () => {
     setLoading(true);
-    Promise.all([api({ action: "get_products" }), api({ action: "get_users" }), api({ action: "all_orders" })])
+    Promise.all([api("get_products"), api("get_users"), api("all_orders")])
       .then(([pd, ud, od]) => {
         if (pd.ok) setProducts(pd.products);
         if (ud.ok) setUsers(ud.users);
@@ -521,12 +520,12 @@ function AdminPanel() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddLoading(true); setAddMsg("");
-    const payload: Record<string, unknown> = { action: "add_product", ...newProduct, price: Number(newProduct.price), sort_order: Number(newProduct.sort_order) };
+    const payload: Record<string, unknown> = { ...newProduct, price: Number(newProduct.price), sort_order: Number(newProduct.sort_order) };
     if (newImageFile) {
       payload.image_b64 = await readFileAsBase64(newImageFile);
       payload.image_mime = newImageFile.type;
     }
-    const res = await api(payload);
+    const res = await api("add_product", payload);
     if (res.ok) {
       setAddMsg("✅ Товар добавлен");
       setNewProduct({ name: "", description: "", price: "", category: "", icon: "Package", brand: "", sort_order: "0" });
@@ -554,20 +553,19 @@ function AdminPanel() {
 
   const saveEdit = async (id: number) => {
     setEditSaving(true);
-    const payload: Record<string, unknown> = { action: "update_product", id, ...editFields };
-    await api(payload);
+    await api("update_product", { id, ...editFields });
     setEditingId(null); setEditSaving(false); setEditImagePreview(null);
     load();
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm("Скрыть товар?")) return;
-    await api({ action: "delete_product", id });
+    await api("delete_product", { id });
     load();
   };
 
   const handleRestore = async (id: number) => {
-    await api({ action: "restore_product", id });
+    await api("restore_product", { id });
     load();
   };
 
@@ -578,13 +576,13 @@ function AdminPanel() {
 
   const handleSetPosition = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await api({ action: "set_position", username: posUsername, position: posPosition });
+    const res = await api("set_position", { username: posUsername, position: posPosition });
     if (res.ok) { setPosMsg(`✅ @${res.username} — ${POSITION_LABELS[posPosition] || posPosition}`); setPosUsername(""); load(); }
     else setPosMsg(`❌ ${res.error}`);
   };
 
   const handleComplete = async (orderId: number) => {
-    await api({ action: "complete_order", order_id: orderId });
+    await api("complete_order", { order_id: orderId });
     load();
   };
 
@@ -871,24 +869,17 @@ function CourierPanel() {
   const token = localStorage.getItem("tg_session") || "";
 
   const load = () => {
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Session-Token": token },
-      body: JSON.stringify({ action: "all_orders" }),
-    })
-      .then((r) => r.json())
-      .then((d) => { if (d.ok) setOrders(d.orders.filter((o: Order) => o.status !== "done" && o.status !== "cancelled")); })
+    setLoading(true);
+    apiCall("all_orders", {}, token)
+      .then((d) => { if (d.ok) setOrders((d.orders as Order[]).filter((o) => o.status !== "done" && o.status !== "cancelled")); })
+      .catch(() => {})
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
 
   const handleComplete = async (orderId: number) => {
-    await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Session-Token": token },
-      body: JSON.stringify({ action: "complete_order", order_id: orderId }),
-    });
+    await apiCall("complete_order", { order_id: orderId }, token).catch(() => {});
     load();
   };
 
@@ -954,17 +945,17 @@ function ProfileTab() {
     const token = localStorage.getItem("tg_session");
     if (!token) { setError("not_logged_in"); setLoading(false); return; }
     Promise.all([
-      fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json", "X-Session-Token": token }, body: JSON.stringify({ action: "profile" }) }).then((r) => r.json()),
-      fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json", "X-Session-Token": token }, body: JSON.stringify({ action: "orders" }) }).then((r) => r.json()),
-      fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json", "X-Session-Token": token }, body: JSON.stringify({ action: "get_avatar" }) }).then((r) => r.json()),
+      apiCall("profile", {}, token),
+      apiCall("orders", {}, token),
+      apiCall("get_avatar", {}, token),
     ])
       .then(([profileData, ordersData, avatarData]) => {
-        if (profileData.ok) setProfile(profileData.user);
-        else setError(profileData.error || "Ошибка");
-        if (ordersData.ok) setOrders(ordersData.orders);
-        if (avatarData.ok && avatarData.avatar_url) { setAvatarUrl(avatarData.avatar_url); localStorage.setItem("tg_avatar", avatarData.avatar_url); }
+        if (profileData.ok) setProfile(profileData.user as typeof profile);
+        else setError((profileData.error as string) || "Ошибка");
+        if (ordersData.ok) setOrders(ordersData.orders as Order[]);
+        if (avatarData.ok && avatarData.avatar_url) { setAvatarUrl(avatarData.avatar_url as string); localStorage.setItem("tg_avatar", avatarData.avatar_url as string); }
       })
-      .catch(() => setError("Ошибка загрузки профиля"))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Ошибка загрузки профиля"))
       .finally(() => setLoading(false));
   }, []);
 

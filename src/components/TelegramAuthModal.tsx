@@ -1,7 +1,6 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
-
-const API_URL = "https://functions.poehali.dev/7b024c21-5cd0-4f27-b3e7-6fd2f6449619";
+import { apiCall } from "@/lib/api";
 
 interface TelegramAuthModalProps {
   open: boolean;
@@ -23,13 +22,8 @@ export default function TelegramAuthModal({ open, onClose, onSuccess }: Telegram
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send_code", username }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Ошибка");
+      const data = await apiCall("send_code", { username });
+      if (!data.ok) throw new Error((data.error as string) || "Ошибка");
       setStep("code");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка отправки кода");
@@ -43,16 +37,11 @@ export default function TelegramAuthModal({ open, onClose, onSuccess }: Telegram
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify_code", username, code }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Неверный код");
-      localStorage.setItem("tg_session", data.token);
+      const data = await apiCall("verify_code", { username, code });
+      if (!data.ok) throw new Error((data.error as string) || "Неверный код");
+      localStorage.setItem("tg_session", data.token as string);
       localStorage.setItem("tg_user", JSON.stringify(data.user));
-      onSuccess?.(data.user, data.token);
+      onSuccess?.(data.user as { username: string; first_name?: string }, data.token as string);
       handleClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка верификации");
